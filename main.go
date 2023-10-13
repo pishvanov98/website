@@ -8,13 +8,47 @@ import (
 	"net/http"
 )
 
+type Article struct {
+	Id                     uint16
+	Title, Anons, FullText string
+}
+
+var posts = []Article{}
+
 func index(w http.ResponseWriter, r *http.Request) {
 	t, err := template.ParseFiles("templates/index.html", "templates/header.html", "templates/footer.html")
 
 	if err != nil {
 		fmt.Fprintf(w, err.Error())
 	}
-	t.ExecuteTemplate(w, "index", nil)
+
+	db, err := sql.Open("mysql", "root:root@tcp(127.0.0.1:3306)/golang")
+
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	//Выборка данных
+	res, err := db.Query("SELECT * FROM `articles`")
+
+	if err != nil {
+		panic(err)
+	}
+	posts = []Article{}
+	for res.Next() {
+		var post Article
+		err = res.Scan(&post.Id, &post.Title, &post.Anons, &post.FullText) //Записываем данные из res в структуру post (Article), если появляется ошибка паникуем
+		if err != nil {
+			panic(err)
+		}
+
+		posts = append(posts, post)
+
+		//fmt.Println(fmt.Sprintf("Post: %d,%s,%s,%s", post.Id, post.Title, post.Anons, post.FullText))
+	}
+
+	t.ExecuteTemplate(w, "index", posts)
 }
 func create(w http.ResponseWriter, r *http.Request) {
 	t, err := template.ParseFiles("templates/create.html", "templates/header.html", "templates/footer.html")
